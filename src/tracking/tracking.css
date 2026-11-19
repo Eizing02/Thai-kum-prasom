@@ -25,7 +25,8 @@
   .practice-dock { border: 2px dashed #ddd0ff; background: #1b224c99; font-size: clamp(.7rem, 2vw, .92rem); color: white; }
   .landmark { position: absolute; translate: -50% -50%; width: 5px; height: 5px; border-radius: 100%; z-index: 3; background: #d6c7ff; border: 1px solid #241746; pointer-events: none; }
   .landmark[data-tip=true] { background: #ffe46d; width: 9px; height: 9px; }
-  .tracking-cursor { position: absolute; translate: -50% -50%; color: white; filter: drop-shadow(0 1px 3px #171238); pointer-events: none; z-index: 4; }
+  .hand-reticle { position: absolute; width: 26px; height: 26px; border: 2px solid #fffcee; border-radius: 50%; outline: 2px solid #181b39; background: radial-gradient(circle, #181b39 2px, #fffcee 2px 3px, transparent 3px); pointer-events: none; }
+  .tracking-cursor { transform: translate3d(-50%, -50%, 0); z-index: 4; }
   .camera-in-game { position: absolute; z-index: 8; inset: .55rem .55rem auto auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .45rem; max-width: min(26rem, calc(100% - 1.1rem)); }
   .camera-in-game > span { display: inline-flex; gap: .4rem; align-items: center; padding: .38rem .65rem; border-radius: 8px; background: #171b34; color: white; font-size: .8rem; }
   .camera-in-game p { order: 1; width: 100%; padding: .55rem .7rem; border-radius: 8px; background: #171b34; color: white; font-size: .86rem; }

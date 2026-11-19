@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
-import { Camera, CameraOff, Crosshair, Hand, Mouse, Video } from 'lucide-react'
+import { Camera, CameraOff, Hand, Mouse, Video } from 'lucide-react'
 import type { Settings } from '../app/storage'
 import { Button, Check } from '../components/ui'
 import { distance, clamp, type Point } from '../game/boardLayout'
@@ -233,7 +233,7 @@ export function TrackingLab({ diagnostic, settings, change, onPlay, onSkip }: {
             <span className="practice-dock" style={pointStyle(dock)}>วางที่นี่</span>
             <span className="practice-cube" data-grabbed={grabbed} style={pointStyle(cube)} aria-hidden="true"><Hand size={25} /></span>
             {pose?.landmarks.map((point, index) => <span key={index} className="landmark" data-tip={index === 4 || index === 8} style={pointStyle(handCoordinates(point, settings.mirror))} />)}
-            <span ref={cursor} hidden className="tracking-cursor" aria-hidden="true"><Crosshair size={26} /></span>
+            <span ref={cursor} hidden className="hand-reticle tracking-cursor" aria-hidden="true" />
           </div>
           <span className="tracking-caption">{simulate ? 'จำลองท่ามือ' : stateLabel[camera.status]}</span>
         </div>

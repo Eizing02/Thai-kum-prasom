@@ -164,7 +164,6 @@ input[type="range"] { width: 100%; display: block; margin-top: .25rem; min-heigh
 .play[data-camera=true] .board-area { min-height: 0; border-radius: 0; }
 .play[data-camera=true] .word-board { position: absolute; inset: 0; min-height: 0; }
 .word-board[data-camera=true] .word-card { font-size: min(clamp(1.05rem, 3.45vw, 2.08rem), var(--card-label-size)); }
-.word-board[data-camera=true] .hand-cursor svg { filter: drop-shadow(0 1px 2px #0e132d) drop-shadow(0 1px 2px #0e132d); }
 .play-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: .85rem; flex-wrap: wrap; }
 .play-head h1 { font-size: clamp(1.8rem, 4vw, 2.9rem); }
 .play-head p { color: var(--muted); }
@@ -192,8 +191,7 @@ input[type="range"] { width: 100%; display: block; margin-top: .25rem; min-heigh
 .merge-effect svg { position: absolute; color: #ffea80; animation: burst .5s ease-out both; }
 @keyframes appear { 0%, 24% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes burst { from { transform: rotate(var(--bearing)) translateX(13px); } to { transform: rotate(var(--bearing)) translateX(94px) rotate(45deg); opacity: 0; } }
-.hand-cursor { position: absolute; z-index: 6; inset: 0 auto auto 0; color: #fffcee; pointer-events: none; }
-.hand-cursor svg { translate: -50% -50%; filter: drop-shadow(0 2px 3px #0a1234); }
+.hand-cursor { z-index: 6; inset: 0 auto auto 0; }
 .game-instructions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .6rem; padding-block: .85rem; }
 .game-instructions p { color: var(--muted); font-size: .91rem; }
 dialog { position: fixed; inset: 0; margin: auto; border: 0; border-radius: 15px; background: var(--paper); color: var(--ink); width: min(100% - 28px, 560px); max-height: calc(100dvh - 28px); padding: 0; overflow: auto; box-shadow: 0 18px 55px #0f153b63; }

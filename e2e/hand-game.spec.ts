@@ -83,7 +83,10 @@ test('camera play keeps the cursor on the card and commits the target at the sta
   const from = { ...sourceBox, x: sourceBox.x + sourceBox.width * .36 }
   const to = (await target.boundingBox())!
   await sendPose(poseAt(from, false))
-  await expect(stage.locator('.hand-cursor')).toBeVisible()
+  const reticle = stage.locator('.hand-cursor')
+  await expect(reticle).toBeVisible()
+  await expect(reticle).toHaveCSS('filter', 'none')
+  await expect(reticle.locator('svg')).toHaveCount(0)
   await sendPose(poseAt(from, true))
   await expect(source).toHaveAttribute('data-drag', 'true')
   await page.evaluate(() => {
@@ -101,7 +104,10 @@ test('camera play keeps the cursor on the card and commits the target at the sta
       const current = cursor.getBoundingClientRect()
       if (Math.hypot(current.x - previous.x, current.y - previous.y) < 15) return
       const card = heldCard.getBoundingClientRect()
-      board.setAttribute('data-measured-drag-gap', String(Math.hypot(current.x - card.x - card.width / 2, current.y - card.y - card.height / 2)))
+      board.setAttribute('data-measured-drag-gap', String(Math.hypot(
+        current.x + current.width / 2 - card.x - card.width / 2,
+        current.y + current.height / 2 - card.y - card.height / 2,
+      )))
       observer.disconnect()
     })
     observer.observe(cursor, { attributeFilter: ['style'] })
@@ -126,7 +132,7 @@ test('camera play keeps the cursor on the card and commits the target at the sta
   await expect.poll(async () => {
     const cursor = await stage.locator('.hand-cursor').boundingBox()
     if (!cursor) return Infinity
-    return Math.hypot(cursor.x - wrongSource.x - wrongSource.width / 2, cursor.y - wrongSource.y - wrongSource.height / 2)
+    return Math.hypot(cursor.x + cursor.width / 2 - wrongSource.x - wrongSource.width / 2, cursor.y + cursor.height / 2 - wrongSource.y - wrongSource.height / 2)
   }).toBeLessThan(10)
   await sendPose(poseAt(wrongSource, true))
   await expect(decoy).toHaveAttribute('data-drag', 'true')

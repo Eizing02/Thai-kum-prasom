@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent, Ref } from 'react'
-import { Crosshair, Magnet, Plus } from 'lucide-react'
+import { Magnet, Plus } from 'lucide-react'
 import { clamp, distance, layoutCards, targetAt } from './boardLayout'
 import type { Point, VisualCard } from './boardLayout'
 import { validateWordPair } from './engine'
@@ -175,9 +175,13 @@ export function Board({ level, mode, game, disabled, reduced, quality, settings,
       const { layout, visible, game, reduced, settings, masked } = latest.current
       const held = drag.current
       const point = handPoint.current
-      if (cursor.current) {
-        cursor.current.hidden = !point
-        if (point) cursor.current.style.transform = `translate(${point.x}px,${point.y}px)`
+      const reticle = cursor.current
+      if (reticle) {
+        if (reticle.hidden === Boolean(point)) reticle.hidden = !point
+        if (point) {
+          const transform = `translate3d(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px, 0px) translate(-50%, -50%)`
+          if (reticle.style.transform !== transform) reticle.style.transform = transform
+        }
       }
       const transition = animation.current
       const feedback = game.feedback
@@ -299,6 +303,6 @@ export function Board({ level, mode, game, disabled, reduced, quality, settings,
         <Plus size={15} key={index} style={{ '--bearing': `${index * 360 / particleCount}deg` } as React.CSSProperties} />)}
       <strong>{merged.word?.displayWord}</strong>
     </div>}
-    <span ref={cursor} hidden className="hand-cursor" aria-hidden="true"><Crosshair size={28} /></span>
+    <span ref={cursor} hidden className="hand-reticle hand-cursor" aria-hidden="true" />
   </div>
 }

@@ -14,7 +14,7 @@ const settingsSchema = z.object({
 export type Settings = z.infer<typeof settingsSchema>
 export const defaults: Settings = {
   sound: true, reduced: false, mirror: true, preview: true, quality: 'auto', save: false,
-  close: .3, open: .45, cutoff: 1.8, beta: 1.6, derivative: 1, hand: 'auto', magnet: 1, effects: 460, grace: 400,
+  close: .3, open: .45, cutoff: 1.8, beta: 3.2, derivative: 1, hand: 'auto', magnet: 1, effects: 460, grace: 400,
 }
 
 function read(key: string): unknown {
