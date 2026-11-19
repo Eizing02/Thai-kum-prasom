@@ -55,6 +55,12 @@ test('the examples wait offscreen and in a hidden tab, then resume', async ({ pa
   await page.clock.runFor(21_000)
   await expect(stage).toHaveAttribute('data-example', '0')
   await stage.scrollIntoViewIfNeeded()
+  await stage.evaluate(element => new Promise<void>(resolve => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.intersectionRatio >= .25) { observer.disconnect(); resolve() }
+    }, { threshold: .25 })
+    observer.observe(element)
+  }))
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: true })
     document.dispatchEvent(new Event('visibilitychange'))
@@ -64,6 +70,8 @@ test('the examples wait offscreen and in a hidden tab, then resume', async ({ pa
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false })
     document.dispatchEvent(new Event('visibilitychange'))
+    // Let the resumed effect arm its interval before advancing the virtual clock.
+    return new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
   })
   await page.clock.runFor(11_000)
   await expect(stage).toHaveAttribute('data-example', '1')
