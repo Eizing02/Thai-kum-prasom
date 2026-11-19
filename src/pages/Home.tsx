@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, BookOpen, Layers3, Magnet, Mouse, Pause, Play, Settings2, StepForward, Waves } from 'lucide-react'
+import { ArrowRight, BookOpen, Layers3, Magnet, Mouse, Settings2, Waves } from 'lucide-react'
 import { Button, type Navigate } from '../components/ui'
 
 const examples = [
@@ -7,7 +7,7 @@ const examples = [
   { title: 'คำซ้อน', detail: 'ซ้อนกันเพื่อความหมายหรือเสียง', words: ['ใหญ่', 'โต', 'ใหญ่โต'], Icon: Waves },
 ]
 const motionPreference = '(prefers-reduced-motion: reduce)'
-const flipStart = 10000
+const flipInterval = 5000
 const flipMidpoint = 260
 const flipEnd = 630
 
@@ -19,12 +19,11 @@ export function Home({ go, saved, reduced, resume }: { go: Navigate; saved: bool
   const stage = useRef<HTMLElement>(null)
   const [active, setActive] = useState(0)
   const [turn, setTurn] = useState<'still' | 'close' | 'open'>('still')
-  const [paused, setPaused] = useState(false)
   const [onScreen, setOnScreen] = useState(false)
   const [pageVisible, setPageVisible] = useState(() => !document.hidden)
   const [systemReduced, setSystemReduced] = useState(() => window.matchMedia(motionPreference).matches)
   const reduceMotion = reduced || systemReduced
-  const cycling = !reduceMotion && !paused && pageVisible && onScreen
+  const cycling = !reduceMotion && pageVisible && onScreen
   const example = examples[active]
 
   useEffect(() => {
@@ -54,16 +53,13 @@ export function Home({ go, saved, reduced, resume }: { go: Navigate; saved: bool
         setTurn('open')
       }, flipMidpoint)
       settle = window.setTimeout(() => setTurn('still'), flipEnd)
-    }, flipStart)
+    }, flipInterval)
     return () => {
       window.clearInterval(loop)
       window.clearTimeout(swap)
       window.clearTimeout(settle)
     }
   }, [cycling])
-
-  const controlLabel = reduceMotion ? 'สลับตัวอย่าง' : paused ? 'เล่นตัวอย่างต่อ' : 'พักการสลับตัวอย่าง'
-  const ControlIcon = reduceMotion ? StepForward : paused ? Play : Pause
 
   return <>
     <section className="home-hero" data-reduced={reduceMotion}>
@@ -76,7 +72,7 @@ export function Home({ go, saved, reduced, resume }: { go: Navigate; saved: bool
         </div>
         <span className="home-note"><Mouse size={17} /> เล่นด้วยเมาส์ สัมผัส หรือใช้กล้อง</span>
       </div>
-      <figure className="lab-art" ref={stage} data-example={active} data-turn={cycling ? turn : 'still'}>
+      <figure className="lab-art" ref={stage} data-example={active} data-floating={cycling} data-turn={cycling ? turn : 'still'}>
         <div aria-hidden="true">
           <div className="lab-dial"><i /><i /><i /><i /></div>
           <div className="lab-orbit" /><div className="lab-orbit orbit-small" />
@@ -86,15 +82,9 @@ export function Home({ go, saved, reduced, resume }: { go: Navigate; saved: bool
           <div className="lab-tile tile-one"><span className="tile-pin">+</span>{example.words[0]}</div>
           <div className="lab-tile tile-two"><span className="tile-pin">−</span>{example.words[1]}</div>
         </div>
-        <figcaption className="lab-footer">
-          <div className="lab-key" aria-live={reduceMotion ? 'polite' : 'off'} aria-atomic="true">
-            <span>{example.title}</span>
-            <Formula words={example.words} />
-          </div>
-          <button type="button" className="lab-control" aria-label={controlLabel} title={controlLabel} onClick={() => {
-            if (reduceMotion) setActive(value => (value + 1) % examples.length)
-            else setPaused(value => !value)
-          }}><ControlIcon size={19} aria-hidden="true" /></button>
+        <figcaption className="lab-key">
+          <span>{example.title}</span>
+          <Formula words={example.words} />
         </figcaption>
       </figure>
     </section>
