@@ -3,7 +3,7 @@ import type { PointerEvent, Ref } from 'react'
 import { Magnet, Plus } from 'lucide-react'
 import { clamp, distance, layoutCards, targetAt } from './boardLayout'
 import type { Point, VisualCard } from './boardLayout'
-import { validateWordPair } from './engine'
+import { cardAnswer } from './engine'
 import type { Card, Game, Level } from './engine'
 import type { Mode } from '../content/schema'
 import type { Settings } from '../app/storage'
@@ -119,7 +119,8 @@ export function Board({ level, mode, game, disabled, reduced, quality, settings,
     if (active.targetId !== target?.id) {
       active.targetId = target?.id
       const source = level.cards.find(card => card.id === active.id)!
-      setNear(target ? { id: target.id, correct: Boolean(validateWordPair([target.text, source.text], mode, level.whitelist)) } : undefined)
+      const answer = target && cardAnswer(source, target, mode, level.whitelist)
+      setNear(target ? { id: target.id, correct: !!answer && !game.attempts.some(attempt => attempt.word.displayWord === answer.displayWord) } : undefined)
     }
     return target
   }
@@ -200,8 +201,8 @@ export function Board({ level, mode, game, disabled, reduced, quality, settings,
           const target = cameraMode || reduced || masked ? undefined : getTarget(held.point, card.id)
           if (target) {
             const destination = layout.places[target.id]
-            const answer = validateWordPair([target.text, card.text], latest.current.mode, latest.current.level.whitelist)
-            const weight = (answer ? .12 : -.07) * settings.magnet
+            const answer = cardAnswer(card, target, latest.current.mode, latest.current.level.whitelist)
+            const weight = (answer && !game.attempts.some(attempt => attempt.word.displayWord === answer.displayWord) ? .12 : -.07) * settings.magnet
             x = clamp(x + (destination.x - x) * weight, layout.cardWidth / 2, layout.width - layout.cardWidth / 2)
             y = clamp(y + (destination.y - y) * weight, layout.cardHeight / 2, layout.height - layout.cardHeight / 2)
           }

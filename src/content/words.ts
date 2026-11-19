@@ -1,4 +1,6 @@
 import { librarySchema, type Word } from './schema'
+import { compoundEasy, compoundHard, compoundMedium, type Entry } from './compoundEntries'
+import { oppositeEntries, similarEntries, soundEntries } from './doubleEntries'
 
 type Row = [string, string, string, Word['subtype'], string, string, string, string, Word['difficulty'], Word['illustrationType']?]
 const rows: Row[] = [
@@ -35,10 +37,44 @@ const rows: Row[] = [
 ]
 const extra = ['เมฆ','ดาว','ใบ','แก้ว','หนัง','ดิน','เขา','ฝน','หิน','ใจ']
 
-export const words = librarySchema.parse(rows.map(([id, first, second, subtype, meaning, explanation, exampleSentence, hint, difficulty, illustrationType = 'word'], index) => ({
+function expand(entries: readonly Entry[], subtype: Word['subtype'], level: Word['difficulty'] | ((index: number) => Word['difficulty'])): Row[] {
+  return entries.map(([id, first, second, meaning, sentence, hint, reason], index) => {
+    const relation = {
+      compound: `${first} กับ ${second} รวมกันเป็นคำเรียกเฉพาะว่า ${first}${second}`,
+      similar: `${first} และ ${second} สื่อความหมายไปในทางใกล้เคียงกัน เมื่อนำมาซ้อนกันช่วยให้ความหมายชัดขึ้น`,
+      opposite: `${first} และ ${second} มีความหมายตรงข้ามกัน เมื่อใช้คู่กันจึงกล่าวได้ครอบคลุมทั้งสองด้าน`,
+      sound: `คำว่า ${first} กับ ${second} ใช้เสียงที่รับกัน เมื่อออกเสียงต่อกันเกิดจังหวะและความหมายของคำเต็ม`,
+    }[subtype]
+    return [id, first, second, subtype, meaning, reason ?? relation, sentence, hint,
+      typeof level === 'function' ? level(index) : level, subtype === 'sound' ? 'sound' : 'word']
+  })
+}
+
+const moreMeanings: Record<string, Word['additionalMeanings']> = {
+  scout: [{ meaning: 'ลูกของสัตว์ที่เรียกว่าเสือ', exampleSentence: 'แม่เสือพาลูกเสือออกจากพุ่มไม้' }],
+  window: [{ meaning: 'กรอบบนหน้าจอที่แสดงโปรแกรมหรือเอกสาร', exampleSentence: 'ฉันเปิดหน้าต่างโปรแกรมเพื่อแก้ไขเอกสาร' }],
+  bottleneck: [{ meaning: 'จุดที่มีข้อจำกัดจนทำให้ทั้งกระบวนการช้าลง', exampleSentence: 'ขั้นตอนตรวจเอกสารเป็นคอขวดของงานนี้' }],
+  'right-hand': [{ meaning: 'มือด้านขวาของร่างกาย', exampleSentence: 'น้องจับดินสอด้วยมือขวา' }],
+  'mosquito-larva': [{ meaning: 'เครื่องหมายจุลภาค ใช้คั่นข้อความ', exampleSentence: 'ครูสอนให้ใช้เครื่องหมายลูกน้ำคั่นรายการ' }],
+  'up-down': [{ meaning: 'เคลื่อนตัวในแนวดิ่ง โดยสูงขึ้นหรือต่ำลง', exampleSentence: 'ลิฟต์ขึ้นลงระหว่างชั้นต่าง ๆ' }],
+  'clear-cheer': [{ meaning: 'เบิกบานและสบายใจ', exampleSentence: 'วันนี้คุณยายมีอารมณ์แจ่มใส' }],
+}
+
+const catalog: Row[] = [...rows,
+  ...expand(compoundEasy, 'compound', 'easy'),
+  ...expand(compoundMedium, 'compound', 'medium'),
+  ...expand(compoundHard, 'compound', 'hard'),
+  ...expand(similarEntries, 'similar', index => index < 16 ? 'easy' : index < 33 ? 'medium' : 'hard'),
+  ...expand(oppositeEntries, 'opposite', index => index < 7 ? 'easy' : index < 13 ? 'medium' : 'hard'),
+  ...expand(soundEntries, 'sound', index => index < 6 ? 'easy' : index < 12 ? 'medium' : 'hard'),
+]
+
+export const words = librarySchema.parse(catalog.map(([id, first, second, subtype, meaning, explanation, exampleSentence, hint, difficulty, illustrationType = 'word'], index) => ({
   id, parts: [first, second], displayWord: first + second, mode: subtype === 'compound' ? 'compound' : 'double',
   subtype, meaning, explanation, exampleSentence, hint, difficulty, illustrationType,
   distractorPool: [extra[index % extra.length], extra[(index + 3) % extra.length], extra[(index + 7) % extra.length]].filter(part => part !== first && part !== second),
   orderSensitive: id === 'right-wrong' || id === 'ethics',
   approved: true, needsReview: false, tags: [subtype === 'compound' ? 'คำประสม' : 'คำซ้อน'],
+  additionalMeanings: moreMeanings[id],
+  pronunciation: id === 'pupil' ? 'ลูกสิด' : undefined,
 })))

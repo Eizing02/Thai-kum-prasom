@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { Button, Check, Dialog } from '../components/ui'
 import { download } from '../app/storage'
 import { difficultyLabel, librarySchema, modeLabel, playable, subtypeLabel, type Word } from '../content/schema'
+import { words as standardWords } from '../content/words'
 
 const blank = (): Word => ({
   id: globalThis.crypto?.randomUUID?.() ?? 'word-' + Date.now(), mode: 'compound', subtype: 'compound',
@@ -13,6 +14,7 @@ const blank = (): Word => ({
 const fields: Record<string, string> = {
   id: 'รหัสคำ', parts: 'ส่วนคำ', mode: 'หัวข้อ', subtype: 'ชนิดคำ', displayWord: 'คำเต็ม',
   meaning: 'ความหมาย', explanation: 'เหตุผล', exampleSentence: 'ประโยคตัวอย่าง', hint: 'คำใบ้',
+  pronunciation: 'คำอ่าน', additionalMeanings: 'ความหมายเพิ่มเติม',
   difficulty: 'ระดับ', distractorPool: 'ตัวหลอก', orderSensitive: 'ลำดับส่วนคำ',
   approved: 'อนุมัติ', needsReview: 'รอตรวจทาน', illustrationType: 'ภาพประกอบ', tags: 'ป้ายกำกับ',
 }
@@ -26,8 +28,15 @@ export function Teacher({ library, save, preview }: { library: Word[]; save: (wo
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [filter, setFilter] = useState('')
+  const [category, setCategory] = useState<Word['mode'] | ''>('')
+  const [page, setPage] = useState(0)
   const file = useRef<HTMLInputElement>(null)
-  const list = library.filter(word => (word.displayWord + ' ' + modeLabel[word.mode]).includes(filter.trim()))
+  const list = library.filter(word => (!category || word.mode === category) && (word.displayWord + ' ' + modeLabel[word.mode]).includes(filter.trim()))
+  const pageSize = 30
+  const pageCount = Math.max(1, Math.ceil(list.length / pageSize))
+  const shownPage = Math.min(page, pageCount - 1)
+  const present = new Set(library.map(word => word.id))
+  const standardMissing = standardWords.filter(word => !present.has(word.id))
   function persist(words: Word[], label: string) {
     if (!save(words)) { setError('เบราว์เซอร์บันทึกคลังคำไม่ได้ ลองตรวจพื้นที่จัดเก็บหรือส่งออกไฟล์ไว้'); return false }
     setMessage(label)
@@ -40,7 +49,7 @@ export function Teacher({ library, save, preview }: { library: Word[]; save: (wo
     const data = new FormData(event.currentTarget)
     const formValue = (name: string) => String(data.get(name) ?? '').trim()
     const split = (name: string) => formValue(name).split(',').map(value => value.trim()).filter(Boolean)
-    const candidate = { ...draft, tags: split('tags'), distractorPool: split('decoys') }
+    const candidate = { ...draft, pronunciation: formValue('pronunciation') || undefined, tags: split('tags'), distractorPool: split('decoys') }
     const next = library.some(word => word.id === draft.id) ? library.map(word => word.id === draft.id ? candidate : word) : [...library, candidate]
     const parsed = librarySchema.safeParse(next)
     if (!parsed.success) { setError(formatError(parsed.error)); return }
@@ -58,12 +67,32 @@ export function Teacher({ library, save, preview }: { library: Word[]; save: (wo
       setPending({ words: parsed.data, label: `แทนที่คลังเดิมด้วย ${parsed.data.length} รายการ` })
     } catch { setError('เปิดไฟล์ JSON ไม่สำเร็จ ตรวจรูปแบบไฟล์แล้วลองใหม่') }
   }
+  function mergeStandardWords() {
+    setError('')
+    setMessage('')
+    const merged = [...library]
+    const labels = new Set(library.map(word => `${word.mode}/${word.displayWord}`))
+    for (const word of standardMissing) {
+      const label = `${word.mode}/${word.displayWord}`
+      if (labels.has(label) || !librarySchema.safeParse([...merged, word]).success) continue
+      merged.push(word)
+      labels.add(label)
+    }
+    const added = merged.length - library.length
+    if (added) setPending({ words: merged, label: `เพิ่มคำจากคลังมาตรฐาน ${added} รายการ` })
+    else setMessage('ไม่มีคำมาตรฐานที่เพิ่มได้ในคลังนี้')
+  }
   return <section className="page-flow teacher-page">
     <div><h1>คลังคำสำหรับครู</h1><p className="lead">แก้ไข ตรวจทาน และอนุมัติคำในเบราว์เซอร์นี้</p></div>
     <div className="teacher-tools">
-      <label>ค้นหาคำ <input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="เช่น รถไฟ" /></label>
+      <label>ค้นหาคำ <input type="search" value={filter} onChange={event => { setFilter(event.target.value); setPage(0); setMessage('') }} placeholder="เช่น รถไฟ" /></label>
+      <label>หมวดคำ <select value={category} onChange={event => { setCategory(event.target.value as typeof category); setPage(0); setMessage('') }}>
+        <option value="">ทุกหมวด</option>
+        {Object.entries(modeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
       <div className="actions">
         <Button look="primary" onClick={() => { setError(''); setDraft(blank()) }}><Plus size={18} /> เพิ่มคำ</Button>
+        {!!standardMissing.length && <Button onClick={mergeStandardWords}>เพิ่มคำจากคลังมาตรฐาน</Button>}
         <Button onClick={() => file.current?.click()}><Upload size={17} /> นำเข้า JSON</Button>
         <Button onClick={() => download('thai-word-library.json', JSON.stringify({ version: 1, words: library }, null, 2), 'application/json')}><Download size={17} /> ส่งออก JSON</Button>
       </div>
@@ -76,7 +105,7 @@ export function Teacher({ library, save, preview }: { library: Word[]; save: (wo
     {error && !draft && !pending && <p className="error-message" role="alert">{error}</p>}
     <p className="muted" aria-live="polite">{message || `${list.length} รายการ · พร้อมเล่น ${list.filter(playable).length} รายการ`}</p>
     <ul className="teacher-list">
-      {list.map(word => <li key={word.id}>
+      {list.slice(shownPage * pageSize, (shownPage + 1) * pageSize).map(word => <li key={word.id}>
         <div className="teacher-word"><strong>{word.displayWord}</strong><span>{subtypeLabel[word.subtype]}</span></div>
         <span className="teacher-status">{playable(word) ? <><CheckCircle2 size={15} /> พร้อมเล่น</> : word.needsReview ? 'รอตรวจทาน' : 'ปิดใช้งาน'}</span>
         <div className="actions">
@@ -86,6 +115,11 @@ export function Teacher({ library, save, preview }: { library: Word[]; save: (wo
         </div>
       </li>)}
     </ul>
+    {pageCount > 1 && <div className="actions" aria-label="หน้าคลังคำ">
+      <Button disabled={shownPage === 0} onClick={() => setPage(shownPage - 1)}>ก่อนหน้า</Button>
+      <span>หน้า {shownPage + 1} จาก {pageCount}</span>
+      <Button disabled={shownPage === pageCount - 1} onClick={() => setPage(shownPage + 1)}>หน้าถัดไป</Button>
+    </div>}
     {!list.length && <p>ไม่พบคำในรายการนี้</p>}
     {pending && <Dialog title={pending.label} close={() => setPending(undefined)}>
       <p>การเปลี่ยนแปลงมีผลกับคลังคำในเบราว์เซอร์นี้</p>
@@ -108,8 +142,18 @@ export function Teacher({ library, save, preview }: { library: Word[]; save: (wo
           setDraft({ ...draft, parts, displayWord: parts.map(text => text.trim()).join('') })
         }} /></label>)}</div>
         <p>คำเต็ม <strong>{draft.displayWord || '—'}</strong></p>
+        <label>คำอ่านสำหรับเสียงไทย (ถ้าต่างจากรูปคำ)<input name="pronunciation" maxLength={64} defaultValue={draft.pronunciation} /></label>
         {([['meaning', 'ความหมาย'], ['explanation', 'เหตุผล'], ['exampleSentence', 'ประโยคตัวอย่าง'], ['hint', 'คำใบ้']] as const).map(([key, label]) =>
           <label key={key}>{label}<textarea required maxLength={280} rows={2} value={draft[key]} onChange={event => setDraft({ ...draft, [key]: event.target.value })} /></label>)}
+        {draft.additionalMeanings?.map((sense, index) => <fieldset className="form-row" key={index}>
+          <legend>ความหมายเพิ่มเติม {index + 1}</legend>
+          {([['meaning', 'ความหมายเพิ่มเติม'], ['exampleSentence', 'ประโยคตัวอย่างเพิ่มเติม']] as const).map(([key, label]) =>
+            <label key={key}>{label}<textarea required maxLength={280} rows={2} value={sense[key]} onChange={event => {
+              setDraft({ ...draft, additionalMeanings: draft.additionalMeanings?.map((item, at) => index === at ? { ...item, [key]: event.target.value } : item) })
+            }} /></label>)}
+          <Button look="quiet" onClick={() => setDraft({ ...draft, additionalMeanings: draft.additionalMeanings?.filter((_, at) => at !== index) })}>เอาความหมายนี้ออก</Button>
+        </fieldset>)}
+        <Button disabled={(draft.additionalMeanings?.length ?? 0) >= 8} onClick={() => setDraft({ ...draft, additionalMeanings: [...(draft.additionalMeanings ?? []), { meaning: '', exampleSentence: '' }] })}>เพิ่มความหมาย</Button>
         <label>ตัวหลอก (คั่นด้วยจุลภาค)<input name="decoys" defaultValue={draft.distractorPool.join(', ')} /></label>
         <label>ป้ายกำกับ (คั่นด้วยจุลภาค)<input name="tags" defaultValue={draft.tags.join(', ')} /></label>
         <label>ภาพประกอบ <select value={draft.illustrationType} onChange={event => setDraft({ ...draft, illustrationType: event.target.value as Word['illustrationType'] })}>

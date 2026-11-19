@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Button, Check } from '../components/ui'
 import type { Settings } from '../app/storage'
 import { difficultyLabel } from '../content/schema'
-import type { GameConfig } from '../game/engine'
+import { wordsPerGame, type GameConfig } from '../game/engine'
 
 function Options<T extends string>({ title, value, options, change }: {
   title: string; value: T; change: (next: T) => void; options: { value: T; label: string; details?: string; icon?: ReactNode }[];
@@ -16,13 +16,13 @@ function Options<T extends string>({ title, value, options, change }: {
   </div></fieldset>
 }
 
-export function Setup({ config, setConfig, settings, changeSettings, start, available }: {
+export function Setup({ config, setConfig, settings, changeSettings, start, available, dealError }: {
   config: GameConfig; setConfig: (value: GameConfig) => void; settings: Settings; changeSettings: (patch: Partial<Settings>) => void;
-  start: () => void; available: boolean;
+  start: () => void; available: boolean; dealError: string;
 }) {
   const change = (patch: Partial<GameConfig>) => setConfig({ ...config, ...patch })
   return <section className="narrow page-flow setup">
-    <div><h1>เลือกบทเรียน</h1><p className="lead">จัดสนามให้เหมาะกับการฝึกของคุณ</p></div>
+    <div><h1>เลือกบทเรียน</h1><p className="lead">จับคู่ให้ถูกครบ {wordsPerGame} คำเพื่อผ่านและดูผลการเล่น</p></div>
     <Options title="หัวข้อ" value={config.mode} change={mode => change({ mode })} options={[
       { value: 'compound', label: 'คำประสม', details: 'รวมคำให้เกิดความหมายใหม่', icon: <Layers3 /> },
       { value: 'double', label: 'คำซ้อน', details: 'ซ้อนคำเพื่อความหมายหรือเสียง', icon: <Waves /> },
@@ -49,7 +49,7 @@ export function Setup({ config, setConfig, settings, changeSettings, start, avai
       </select></label>
       {config.timer !== 'off' && <label>เวลา (วินาที) <input type="number" min={10} max={900} value={config.seconds} onChange={event => change({ seconds: event.target.valueAsNumber || 0 })} /></label>}
     </div>}
-    {!available && <p role="alert">หัวข้อนี้ไม่มีรายการที่พร้อมเล่น ตรวจสถานะอนุมัติในคลังคำสำหรับครู</p>}
+    {(!available || dealError) && <p role="alert">{!available ? `หัวข้อนี้มีคำพร้อมเล่นไม่ถึง ${wordsPerGame} คำ ตรวจสถานะในคลังคำสำหรับครู` : dealError}</p>}
     <Button look="primary" disabled={!available || (config.timer !== 'off' && (config.seconds < 10 || config.seconds > 900))} onClick={start}>
       {config.control === 'camera' ? 'ไปหน้าปรับเทียบกล้อง' : 'เข้าสนาม'} <ArrowRight size={20} />
     </Button>

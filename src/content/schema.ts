@@ -13,6 +13,8 @@ export const wordSchema = z.object({
   meaning: text(),
   explanation: text(),
   exampleSentence: text(),
+  pronunciation: text(64).optional(),
+  additionalMeanings: z.array(z.object({ meaning: text(), exampleSentence: text() })).max(8).optional(),
   hint: text(),
   difficulty: difficultySchema,
   distractorPool: z.array(text(16)).max(20),
@@ -30,6 +32,11 @@ export const wordSchema = z.object({
   }
   if (!word.exampleSentence.includes(word.displayWord)) {
     context.addIssue({ code: 'custom', path: ['exampleSentence'], message: 'ประโยคตัวอย่างต้องมีคำเต็ม' })
+  }
+  for (const [index, sense] of (word.additionalMeanings ?? []).entries()) {
+    if (!sense.exampleSentence.includes(word.displayWord)) {
+      context.addIssue({ code: 'custom', path: ['additionalMeanings', index, 'exampleSentence'], message: 'ประโยคตัวอย่างต้องมีคำเต็ม' })
+    }
   }
   if (word.approved && word.needsReview) {
     context.addIssue({ code: 'custom', path: ['approved'], message: 'ปิดสถานะรอตรวจทานก่อนอนุมัติ' })

@@ -6,7 +6,7 @@ test('mobile supports touch dragging and result at 360 CSS pixels', async ({ bro
   try {
     await page.goto('/teacher')
     await page.getByLabel('ค้นหาคำ').fill('รถไฟ')
-    await page.getByRole('button', { name: 'ดูตัวอย่าง รถไฟ' }).tap()
+    await page.getByRole('button', { name: 'ดูตัวอย่าง รถไฟ', exact: true }).tap()
     const board = page.getByTestId('board')
     const source = board.getByRole('button', { name: 'ไฟ', exact: true })
     const target = board.getByRole('button', { name: 'รถ', exact: true })
@@ -19,7 +19,7 @@ test('mobile supports touch dragging and result at 360 CSS pixels', async ({ bro
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
     const popup = page.getByRole('dialog', { name: 'รถไฟ' })
     await popup.getByRole('button', { name: 'ถัดไป' }).tap()
-    await expect(page.getByRole('heading', { name: 'สรุปผลการเล่น' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'คลังคำสำหรับครู' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   } finally { await context.close() }
 })
@@ -49,7 +49,7 @@ test('pause, mute and keyboard controls work in test mode without showing defini
   const target = await fixed.getAttribute('data-card-id')
   await page.locator(`[data-card-id="${target?.replace(/-0$/, '-1')}"]`).press('Enter')
   await fixed.press('Enter')
-  await expect(page.getByText('ด่าน 2 จาก 5', { exact: false })).toBeVisible()
+  await expect(page.getByText('ด่าน 2 จาก 10', { exact: false })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 

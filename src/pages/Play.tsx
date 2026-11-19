@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Clock3, Droplet, Fan, House, Lightbulb, LogOut, Magnet, Maximize, Minimize, Pause, Settings2, Snowflake, TrainFront, Volume2, VolumeX, Waves } from 'lucide-react'
 import { Button, Dialog, type Navigate } from '../components/ui'
+import { AdditionalMeanings, WordSpeech } from '../components/WordDetails'
 import { modeLabel, subtypeLabel, type Word } from '../content/schema'
 import type { Settings } from '../app/storage'
-import { advance, initialGame, match, summarize } from '../game/engine'
+import { advance, cardAnswer, initialGame, match, retryTimedRound, summarize, wordsPerGame } from '../game/engine'
 import type { Game, GameConfig, GameResult, Level } from '../game/engine'
 import { Board, type BoardInput } from '../game/Board'
-import { chime, speakThai, unlockAudio } from '../game/audio'
+import { chime, unlockAudio } from '../game/audio'
 import { SettingsForm } from './Setup'
 
 const icons = { train: TrainFront, snow: Snowflake, wind: Fan, water: Droplet, home: House, sound: Waves, word: Magnet }
 
 function WordDetail({ word, points, next }: { word: Word; points: number; next: () => void }) {
   const Icon = icons[word.illustrationType]
-  const [voiceError, setVoiceError] = useState(false)
   return <Dialog title={word.displayWord}>
     <p className="word-category"><span><Icon size={21} /> {subtypeLabel[word.subtype]}</span><strong>+{points} แต้ม</strong></p>
     <dl className="explanation">
@@ -21,10 +21,10 @@ function WordDetail({ word, points, next }: { word: Word; points: number; next: 
       <div><dt>เหตุผล</dt><dd>{word.explanation}</dd></div>
       <div><dt>ประโยคตัวอย่าง</dt><dd>“{word.exampleSentence}”</dd></div>
     </dl>
-    {voiceError && <p role="status">อุปกรณ์นี้ไม่มีเสียงอ่านภาษาไทยแบบออฟไลน์</p>}
+    <AdditionalMeanings word={word} />
     <div className="actions">
       <Button look="primary" onClick={next}>ถัดไป <ArrowRight size={18} /></Button>
-      <Button onClick={() => setVoiceError(!speakThai(word.displayWord, word.mode))}><Volume2 size={17} /> อ่านออกเสียง</Button>
+      <WordSpeech word={word} />
     </div>
   </Dialog>
 }
@@ -41,9 +41,9 @@ const useReduced = () => {
   return reduced
 }
 
-export function Play({ config, settings, change, levels, finish, go, camera, preview, resume, saveProgress }: {
+export function Play({ config, settings, change, levels, finish, go, restart, camera, preview, resume, saveProgress }: {
   config: GameConfig; settings: Settings; change: (patch: Partial<Settings>) => void;
-  levels: Level[]; finish: (result: GameResult) => void; go: Navigate;
+  levels: Level[]; finish: (result: GameResult) => void; go: Navigate; restart: () => void;
   preview?: boolean; resume?: Game; saveProgress?: (state: Game) => void;
   camera?: (input: React.RefObject<BoardInput | null>, active: boolean, board: React.ReactNode, onReady: (ready: boolean) => void) => React.ReactNode;
 }) {
@@ -62,7 +62,7 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
   const systemReduced = useReduced()
   const reduced = settings.reduced || systemReduced
   const level = levels[game.round]
-  const busy = !!overlay || !!game.feedback || game.done
+  const busy = !!overlay || !!game.feedback || !!game.timeExpired || game.done
   const quality = settings.quality === 'auto' ? automatic : settings.quality
 
   useEffect(() => {
@@ -87,15 +87,15 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
       previous = now
       if (document.hidden) return
       setGame(current => {
-        if (current.done || current.feedback) return current
+        if (current.done || current.timeExpired || current.feedback) return current
         const updated = { ...current, elapsed: current.elapsed + delta, roundElapsed: current.roundElapsed + delta }
         const time = config.timer === 'game' ? updated.elapsed : updated.roundElapsed
         return config.timer !== 'off' && time >= config.seconds
-          ? advance(updated, levels, true, config.timer === 'game') : updated
+          ? { ...updated, timeExpired: config.timer } : updated
       })
     }, 200)
     return () => window.clearInterval(tick)
-  }, [busy, cameraMode, cameraReady, config.seconds, config.timer, level, levels])
+  }, [busy, cameraMode, cameraReady, config.seconds, config.timer, level])
 
   useEffect(() => {
 
@@ -107,7 +107,7 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
 
   useEffect(() => {
     if (!saveProgress || game.done) { lastSave.current = ''; return }
-    const stamp = [game.round, game.score, game.wrong, game.hint, game.feedback?.kind, Math.floor(game.elapsed)].join('/')
+    const stamp = [game.round, game.score, game.wrong, game.hint, game.feedback?.kind, game.timeExpired, Math.floor(game.elapsed)].join('/')
     if (stamp !== lastSave.current) {
       lastSave.current = stamp
       saveProgress(game)
@@ -144,7 +144,9 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
   const time = config.timer === 'off' ? Math.floor(game.elapsed) :
     Math.max(0, config.seconds - Math.floor(config.timer === 'game' ? game.elapsed : game.roundElapsed))
   const guidance = level.cards.some(card => card.fixed) ? 'ลากการ์ดที่เลือกไปวางบนแท่นสีม่วง' : 'ลากส่วนท้ายไปวางบนส่วนหน้าของคำ'
-  const hint = level.goals.find(word => !game.solved.includes(word.id))?.hint
+  const remainingCards = game.hint ? level.cards.filter(card => !game.removed.includes(card.id)) : []
+  const hint = level.whitelist.find(word => !game.attempts.some(attempt => attempt.word.displayWord === word.displayWord) &&
+    remainingCards.some(source => remainingCards.some(target => cardAnswer(source, target, config.mode, level.whitelist)?.id === word.id)))?.hint
   const feedback = game.feedback
   function next() {
     setReady(false)
@@ -160,7 +162,7 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
 
   return <section className="play" data-camera={cameraMode} ref={play}>
     <header className="play-head">
-      <div><h1>{modeLabel[config.mode]}</h1><p>{preview ? 'ตัวอย่างโจทย์' : config.challenge === 'practice' ? 'ฝึกเล่น' : 'ทดสอบ'} <span aria-hidden="true">/</span> ด่าน {game.round + 1} จาก {levels.length}{level.goals.length > 1 && ` · ${game.solved.length}/${level.goals.length} คู่`}</p></div>
+      <div><h1>{modeLabel[config.mode]}</h1><p>{preview ? 'ตัวอย่างโจทย์' : config.challenge === 'practice' ? 'ฝึกเล่น' : 'ทดสอบ'} <span aria-hidden="true">/</span> ด่าน {game.round + 1} จาก {levels.length}{level.goals.length > 1 && ` · ${game.solved.length}/${level.goals.length} คู่`}{!preview && ` · ถูก ${game.attempts.length}/${wordsPerGame} คำ`}</p></div>
       <div className="game-toolbar">
         <span className="game-clock"><Clock3 size={17} /> <span aria-label="เวลา">{Math.floor(time / 60)}:{String(time % 60).padStart(2, '0')}</span></span>
         <strong className="game-score">{game.score} <small>แต้ม</small></strong>
@@ -175,7 +177,7 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
       </div>
     </header>
     <div className="board-area" ref={boardArea} data-layout={config.difficulty}>
-      {camera ? camera(input, !overlay && !game.done, board, setCameraReady) : board}
+      {camera ? camera(input, !overlay && !game.timeExpired && !game.done, board, setCameraReady) : board}
     </div>
     <div className="game-instructions">
       <div aria-live="polite">
@@ -186,12 +188,21 @@ export function Play({ config, settings, change, levels, finish, go, camera, pre
         <Lightbulb size={18} /> คำใบ้
       </Button>}
     </div>
-    {ready && feedback?.word && !overlay && <WordDetail word={feedback.word} points={feedback.points ?? 0} next={next} />}
+    {ready && feedback?.word && !overlay && <WordDetail key={feedback.word.id} word={feedback.word} points={feedback.points ?? 0} next={next} />}
+    {game.timeExpired && !overlay && <Dialog title={game.timeExpired === 'round' ? 'หมดเวลาด่านนี้' : 'หมดเวลาทั้งเกม'}>
+      <p>จับคู่ถูก {game.attempts.length} จาก {wordsPerGame} คำ ลองอีกครั้งเพื่อจับคู่ให้ครบ</p>
+      <div className="actions">
+        {game.timeExpired === 'round'
+          ? <Button look="primary" onClick={() => setGame(retryTimedRound)}>ลองด่านนี้ใหม่</Button>
+          : <Button look="primary" onClick={restart}>เริ่มเกมใหม่</Button>}
+        <Button onClick={() => go('/setup')}>เลือกบทเรียน</Button>
+      </div>
+    </Dialog>}
     {overlay === 'pause' && <Dialog title="พักเกม" close={() => setOverlay(null)}><Button look="primary" onClick={() => setOverlay(null)}>เล่นต่อ <ArrowRight size={18} /></Button></Dialog>}
     {overlay === 'settings' && <Dialog title="ตั้งค่าในเกม" close={() => setOverlay(null)}><SettingsForm settings={settings} change={change} /><Button look="primary" onClick={() => setOverlay(null)}>กลับสู่เกม</Button></Dialog>}
     {overlay === 'exit' && <Dialog title="ออกจากเกมรอบนี้" close={() => setOverlay(null)}>
-      <p>ดูสรุปจากคำที่เล่นไปแล้ว หรือกลับไปเล่นต่อได้</p>
-      <div className="actions"><Button look="primary" onClick={() => finish(summarize(advance(game, levels, true, true), config))}>ดูสรุปผล</Button><Button onClick={() => setOverlay(null)}>เล่นต่อ</Button></div>
+      <p>จับคู่ถูก {game.attempts.length} จาก {preview ? 1 : wordsPerGame} คำ</p>
+      <div className="actions"><Button look="primary" onClick={() => setOverlay(null)}>เล่นต่อ</Button><Button onClick={() => go(preview ? '/teacher' : '/')}>ออกจากเกม</Button></div>
     </Dialog>}
   </section>
 }

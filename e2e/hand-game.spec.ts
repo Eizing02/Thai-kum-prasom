@@ -163,5 +163,5 @@ test('camera play keeps the cursor on the card and commits the target at the sta
   await expect(page.getByText('กล้องพร้อม', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'ปิดกล้อง' }).click()
   await expect(page.locator('video')).toHaveCount(0)
-  await expect(page.getByText('ด่าน 2 จาก 5', { exact: false })).toBeVisible()
+  await expect(page.getByText('ด่าน 2 จาก 10', { exact: false })).toBeVisible()
 })

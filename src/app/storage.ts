@@ -23,6 +23,18 @@ function read(key: string): unknown {
 const settingsKey = 'twm-settings'
 const wordsKey = 'twm-words'
 const resultKey = 'twm-result'
+const recentKey = 'twm-recent-deals'
+const recentSchema = z.record(z.string(), z.array(z.array(z.string().max(32)).max(60)).max(3))
+export type RecentDeals = z.infer<typeof recentSchema>
+
+export function readRecentDeals(): RecentDeals {
+  const parsed = recentSchema.safeParse(read(recentKey))
+  return parsed.success ? parsed.data : {}
+}
+
+export function writeRecentDeals(recent: RecentDeals) {
+  try { localStorage.setItem(recentKey, JSON.stringify(recent)); return true } catch { return false }
+}
 
 export function readSettings(): Settings {
   const value = read(settingsKey)
@@ -43,7 +55,7 @@ export function writeLibrary(words: Word[]) {
 export function savePreferences(settings: Settings) {
   try {
     if (settings.save) localStorage.setItem(settingsKey, JSON.stringify({ version: 2, data: settings }))
-    else { localStorage.removeItem(settingsKey); localStorage.removeItem(resultKey) }
+    else { localStorage.removeItem(settingsKey); localStorage.removeItem(resultKey); localStorage.removeItem(recentKey) }
     return true
   } catch { return false }
 }
@@ -54,7 +66,7 @@ export function readResult(): GameResult | null {
   const value = read(resultKey) as GameResult | null
   if (!value || !['compound', 'double'].includes(value.mode) || !['easy', 'medium', 'hard'].includes(value.difficulty)
     || !['practice', 'test'].includes(value.challenge) || !Array.isArray(value.attempts)
-    || ![value.score, value.correct, value.wrong, value.seconds].every(number => Number.isFinite(number) && number >= 0)) return null
+    || ![value.score, value.correct, value.wrong, value.seconds, value.retries ?? 0].every(number => Number.isFinite(number) && number >= 0)) return null
   if (!librarySchema.safeParse(value.review).success || !librarySchema.safeParse(value.attempts.map(attempt => attempt?.word)).success
     || value.attempts.some(attempt => !Number.isFinite(attempt.points) || !Number.isFinite(attempt.wrong) || typeof attempt.hint !== 'boolean')) return null
   return value

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { difficultySchema, modeSchema, wordSchema } from '../content/schema'
-import type { Game, GameConfig, Level } from '../game/engine'
+import { wordsPerGame, type Game, type GameConfig, type Level } from '../game/engine'
 
 const counter = z.number().int().min(0)
 const elapsed = z.number().min(0)
@@ -19,11 +19,11 @@ const gameShape = z.object({
   attempts: z.array(z.object({ word: wordSchema, points: counter, wrong: counter, hint: z.boolean() })).max(40),
   review: wordList, elapsed, roundElapsed: elapsed,
   feedback: z.object({ kind: z.enum(['wrong', 'right']), source: z.string(), target: z.string(), word: wordSchema.optional(), points: counter.optional() }).nullable(),
-  done: z.literal(false),
+  done: z.literal(false), timeExpired: z.enum(['round', 'game']).optional(), retries: counter.optional(),
 })
 const schema = z.object({
-  version: z.literal(1), id: counter, config: configuration, levels: z.array(levelShape).min(1).max(5), game: gameShape,
-}).refine(value => value.game.round < value.levels.length)
+  version: z.literal(1), id: counter, config: configuration, levels: z.array(levelShape).min(1).max(wordsPerGame), game: gameShape,
+}).refine(value => value.game.round < value.levels.length && value.levels.reduce((sum, level) => sum + level.goals.length, 0) <= wordsPerGame)
 
 const key = 'twm-progress'
 export type Progress = { id: number; config: GameConfig; levels: Level[]; game: Game }

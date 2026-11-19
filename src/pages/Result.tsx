@@ -1,14 +1,17 @@
 import { ArrowRight, Download, Printer, RotateCcw, Trash2 } from 'lucide-react'
 import { Button, type Navigate } from '../components/ui'
+import { AdditionalMeanings, WordSpeech } from '../components/WordDetails'
 import { download } from '../app/storage'
 import { difficultyLabel, modeLabel, subtypeLabel } from '../content/schema'
 import type { GameResult } from '../game/engine'
 
 function csv(result: GameResult) {
-  const summary = ['คะแนน', result.score, 'ถูก', result.correct, 'ผิด', result.wrong, 'วินาที', result.seconds]
+  const summary = ['คะแนน', result.score, 'ถูก', result.correct, 'ผิด', result.wrong, 'วินาที', result.seconds, 'ลองด่านเดิมใหม่', result.retries ?? 0]
   const rows = [
     summary, ['คำ', 'หัวข้อ', 'ชนิด', 'ความหมาย', 'เหตุผล', 'ประโยคตัวอย่าง', 'คะแนน', 'จำนวนครั้งที่พลาดก่อนตอบถูก', 'สถานะ'],
-    ...result.attempts.map(({ word, points, wrong, hint }) => [word.displayWord, modeLabel[word.mode], subtypeLabel[word.subtype], word.meaning, word.explanation, word.exampleSentence, points, wrong, hint || wrong ? 'ทบทวน' : 'ตอบถูก']),
+    ...result.attempts.map(({ word, points, wrong, hint }) => [word.displayWord, modeLabel[word.mode], subtypeLabel[word.subtype],
+      [word.meaning, ...(word.additionalMeanings?.map(sense => sense.meaning) ?? [])].join(' · '), word.explanation,
+      [word.exampleSentence, ...(word.additionalMeanings?.map(sense => sense.exampleSentence) ?? [])].join(' · '), points, wrong, hint || wrong ? 'ทบทวน' : 'ตอบถูก']),
     ...result.review.filter(word => !result.attempts.some(attempt => attempt.word.id === word.id))
       .map(word => [word.displayWord, modeLabel[word.mode], subtypeLabel[word.subtype], word.meaning, word.explanation, word.exampleSentence, 0, '', 'ยังไม่ได้ตอบ']),
   ]
@@ -32,6 +35,7 @@ export function Result({ result, go, replay, clear }: { result: GameResult | nul
         ['เวลา', Math.floor(result.seconds / 60) + ':' + String(result.seconds % 60).padStart(2, '0')],
       ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
     </dl>
+    {!!result.retries && <p>ลองด่านเดิมใหม่ {result.retries} ครั้ง</p>}
     <div className="actions print-hide">
       <Button look="primary" onClick={replay}><RotateCcw size={17} /> เล่นอีกครั้ง</Button>
       <Button onClick={() => csv(result)}><Download size={17} /> ดาวน์โหลด CSV</Button>
@@ -42,6 +46,8 @@ export function Result({ result, go, replay, clear }: { result: GameResult | nul
       {[...items.values()].map(word => <details key={word.id} open>
         <summary><strong>{word.displayWord}</strong><span>{reviewIds.has(word.id) ? 'ทบทวน' : subtypeLabel[word.subtype]}</span></summary>
         <p>{word.meaning}</p><p>{word.explanation}</p><p>“{word.exampleSentence}”</p>
+        <AdditionalMeanings word={word} />
+        <div className="actions print-hide"><WordSpeech word={word} label={`อ่านออกเสียง ${word.displayWord}`} /></div>
       </details>)}
     </div>
     <div><h2>จำความต่างไว้ใช้กับคำใหม่</h2><p>คำประสมเกิดจากการรวมคำให้เกิดความหมายใหม่ ส่วนคำซ้อนจัดส่วนคำเข้าด้วยกันโดยอาศัยความหมายที่สัมพันธ์กันหรือเสียงที่รับกัน</p></div>
