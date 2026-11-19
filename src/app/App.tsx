@@ -91,7 +91,7 @@ export default function App() {
   }
   let page
   switch (route) {
-    case '/': page = <Home go={go} saved={!!result} resume={progress ? resumeSession : undefined} />; break
+    case '/': page = <Home go={go} saved={!!result} reduced={settings.reduced} resume={progress ? resumeSession : undefined} />; break
     case '/help': page = <Help go={go} />; break
     case '/about': page = <About go={go} />; break
     case '/setup': page = <Setup config={config} setConfig={setConfig} settings={settings} changeSettings={changeSettings}
