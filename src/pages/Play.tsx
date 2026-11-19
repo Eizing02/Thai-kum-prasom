@@ -24,7 +24,7 @@ function WordDetail({ word, points, next }: { word: Word; points: number; next: 
     {voiceError && <p role="status">อุปกรณ์นี้ไม่มีเสียงอ่านภาษาไทยแบบออฟไลน์</p>}
     <div className="actions">
       <Button look="primary" onClick={next}>ถัดไป <ArrowRight size={18} /></Button>
-      <Button onClick={() => setVoiceError(!speakThai(word.displayWord))}><Volume2 size={17} /> อ่านออกเสียง</Button>
+      <Button onClick={() => setVoiceError(!speakThai(word.displayWord, word.mode))}><Volume2 size={17} /> อ่านออกเสียง</Button>
     </div>
   </Dialog>
 }

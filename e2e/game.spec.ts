@@ -37,16 +37,34 @@ test('plays an entire mouse session with repulsion, merge, explanations and CSV'
   expect(errors).toEqual([])
 })
 
-test('plays two different double-word subtypes by keyboard via teacher previews', async ({ page }) => {
-  for (const [word, first, second, label] of [
-    ['ใหญ่โต', 'ใหญ่', 'โต', 'คำซ้อนเพื่อความหมาย · ใกล้เคียง'],
-    ['งอแง', 'งอ', 'แง', 'คำซ้อนเพื่อเสียง'],
-  ]) {
+test('plays teacher previews by keyboard and reads each word at its category speed', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', {
+      value: class { constructor(readonly text: string) {} },
+    })
+    Object.defineProperty(window, 'speechSynthesis', {
+      value: {
+        getVoices: () => [{ lang: 'th-TH', localService: true }],
+        cancel: () => {},
+        speak(message: SpeechSynthesisUtterance) {
+          document.documentElement.dataset.spoken = JSON.stringify({ text: message.text, rate: message.rate, lang: message.lang })
+        },
+      },
+    })
+  })
+  for (const [word, first, second, label, rate] of [
+    ['รถไฟ', 'รถ', 'ไฟ', 'คำประสม', 0.8],
+    ['ใหญ่โต', 'ใหญ่', 'โต', 'คำซ้อนเพื่อความหมาย · ใกล้เคียง', 0.45],
+    ['งอแง', 'งอ', 'แง', 'คำซ้อนเพื่อเสียง', 0.45],
+  ] as const) {
     await page.goto('/teacher')
     await page.getByRole('button', { name: 'ดูตัวอย่าง ' + word, exact: true }).click()
     await page.getByRole('button', { name: second, exact: true }).press('Enter')
     await page.getByRole('button', { name: first, exact: true }).press('Enter')
-    await expect(page.getByRole('dialog').getByText(label)).toBeVisible()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText(label, { exact: true })).toBeVisible()
+    await dialog.getByRole('button', { name: 'อ่านออกเสียง' }).click()
+    await expect(page.locator('html')).toHaveAttribute('data-spoken', JSON.stringify({ text: word, rate, lang: 'th-TH' }))
   }
 })
 

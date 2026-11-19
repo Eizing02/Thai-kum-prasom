@@ -1,3 +1,5 @@
+import type { Mode } from '../content/schema'
+
 let audio: AudioContext | undefined
 
 export function unlockAudio() {
@@ -28,7 +30,7 @@ export function chime(correct: boolean) {
   }
 }
 
-export function speakThai(text: string) {
+export function speakThai(text: string, mode: Mode) {
   if (!('speechSynthesis' in window)) return false
   const voice = speechSynthesis.getVoices().find(voice => voice.localService && voice.lang.toLowerCase().startsWith('th'))
   if (!voice) return false
@@ -36,7 +38,7 @@ export function speakThai(text: string) {
   const message = new SpeechSynthesisUtterance(text)
   message.voice = voice
   message.lang = voice.lang
-  message.rate = 0.8
+  message.rate = mode === 'double' ? 0.45 : 0.8
   speechSynthesis.speak(message)
   return true
 }
