@@ -1,0 +1,22 @@
+import { expect, test } from '@playwright/test'
+
+test('opt-in restores the same round after reload and opt-out clears it', async ({ page }) => {
+  await page.goto('/settings')
+  await page.getByRole('checkbox', { name: /เก็บการตั้งค่า/ }).check()
+  await page.goto('/setup')
+  await page.getByRole('button', { name: 'เข้าสนาม' }).click()
+  const fixed = page.locator('[data-fixed=true]')
+  const target = await fixed.getAttribute('data-card-id')
+  await page.locator(`[data-card-id="${target?.replace(/-0$/, '-1')}"]`).press('Enter')
+  await fixed.press('Enter')
+  await page.getByRole('button', { name: 'ถัดไป' }).click()
+  await expect(page.getByText('ด่าน 2 จาก 5', { exact: false })).toBeVisible()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'เล่นรอบเดิมต่อ' }).click()
+  await expect(page.getByText('ด่าน 2 จาก 5', { exact: false })).toBeVisible()
+  await expect(page.locator('.game-score')).toHaveText('100 แต้ม')
+  await page.goto('/settings')
+  await page.getByRole('checkbox', { name: /เก็บการตั้งค่า/ }).uncheck()
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'เล่นรอบเดิมต่อ' })).toHaveCount(0)
+})
