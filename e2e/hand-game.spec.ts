@@ -124,7 +124,8 @@ test('camera play keeps the cursor on the card and commits the target at the sta
   const nextTarget = (await target.boundingBox())!
   await sendPose(poseAt(wrongSource, false))
   await expect.poll(async () => {
-    const cursor = (await stage.locator('.hand-cursor').boundingBox())!
+    const cursor = await stage.locator('.hand-cursor').boundingBox()
+    if (!cursor) return Infinity
     return Math.hypot(cursor.x - wrongSource.x - wrongSource.width / 2, cursor.y - wrongSource.y - wrongSource.height / 2)
   }).toBeLessThan(10)
   await sendPose(poseAt(wrongSource, true))
