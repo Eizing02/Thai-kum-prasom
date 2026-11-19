@@ -40,12 +40,12 @@ export function useCamera({ enabled, active, retry, quality, video, onReading, c
       let handle = 0, renderHandle = 0, interval = 0, loadingTimer = 0
       let started = false, busy = false, fallback = false, stalled = false
       let lastMedia = -1, lastInference = -Infinity, lastDelivered = -Infinity, lastPresented = 0
-      let lastFrameArrival = 0
+      let lastFrameArrival = 0, lastCameraFrame = 0
       let current = quality === 'auto' ? (navigator.hardwareConcurrency <= 4 ? 'low' : 'medium') : quality
       let count = { camera: 0, inference: 0, render: 0, skipped: 0, dropped: 0, frame: 0, latency: 0 }
       let sampled = performance.now()
       let windows = 0
-      const videoFrames = typeof element.requestVideoFrameCallback === 'function'
+      let videoFrames = typeof element.requestVideoFrameCallback === 'function'
 
       const cleanup = () => {
         if (signal.aborted) return
@@ -103,14 +103,15 @@ export function useCamera({ enabled, active, retry, quality, video, onReading, c
       function schedule() {
         if (signal.aborted) return
         handle = videoFrames
-          ? element.requestVideoFrameCallback((now, meta) => onFrame(now, meta.mediaTime, meta.presentedFrames))
+          ? element.requestVideoFrameCallback((now, meta) => { if (videoFrames) onFrame(now, meta.mediaTime, meta.presentedFrames) })
           : requestAnimationFrame(now => onFrame(now, element.currentTime))
       }
       function onFrame(now: number, mediaTime: number, presented?: number) {
         if (signal.aborted || !started) return
         schedule()
-        if (mediaTime === lastMedia || !element.videoWidth || element.readyState < 2) return
+        if (!element.videoWidth || element.readyState < 2 || (mediaTime === lastMedia && !(presented && presented > lastPresented))) return
         lastMedia = mediaTime
+        lastCameraFrame = now
         count.camera++
         if (presented) {
           if (lastPresented) count.dropped += Math.max(0, presented - lastPresented - 1)
@@ -141,10 +142,18 @@ export function useCamera({ enabled, active, retry, quality, video, onReading, c
           sampled = performance.now()
           lastDelivered = sampled
           lastFrameArrival = sampled
+          lastCameraFrame = sampled
           schedule()
           if (reportMetrics || quality === 'auto') renderHandle = requestAnimationFrame(onRender)
           interval = window.setInterval(() => {
             const now = performance.now()
+            // Some video streams keep playing even when frame callbacks stop advancing.
+            if (videoFrames && element.readyState >= 2 && now - lastCameraFrame > 500) {
+              element.cancelVideoFrameCallback(handle)
+              videoFrames = false
+              lastMedia = -1
+              schedule()
+            }
             // Slow inference is not a frame in which the hand was absent.
             if (!stalled && now - lastFrameArrival > 1100) {
               stalled = true

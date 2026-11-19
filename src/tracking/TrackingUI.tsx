@@ -229,7 +229,7 @@ export function TrackingLab({ diagnostic, settings, change, onPlay, onSkip }: {
               simulated.current = { x: clamp((event.clientX - rect.left) / rect.width, .025, .975), y: clamp((event.clientY - rect.top) / rect.height, .025, .975) }
             }}
             onPointerDown={() => { if (simulate) setClosed(value => !value) }}>
-            <Feed video={video} mirror={settings.mirror} show={!simulate && camera.status === 'ready'} />
+            <Feed video={video} mirror={settings.mirror} show={!simulate && (camera.status === 'ready' || camera.status === 'loading')} />
             <span className="practice-dock" style={pointStyle(dock)}>วางที่นี่</span>
             <span className="practice-cube" data-grabbed={grabbed} style={pointStyle(cube)} aria-hidden="true"><Hand size={25} /></span>
             {pose?.landmarks.map((point, index) => <span key={index} className="landmark" data-tip={index === 4 || index === 8} style={pointStyle(handCoordinates(point, settings.mirror))} />)}

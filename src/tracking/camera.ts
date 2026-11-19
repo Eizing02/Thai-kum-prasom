@@ -30,8 +30,23 @@ function workerAvailable() {
   return 'Worker' in window && 'OffscreenCanvas' in window && 'createImageBitmap' in window
 }
 
+function frameHeight(video: HTMLVideoElement, width: number) {
+  return Math.max(1, Math.round(width * video.videoHeight / video.videoWidth))
+}
+
+function drawFrame(context: CanvasRenderingContext2D, video: HTMLVideoElement, width: number) {
+  const canvas = context.canvas
+  const height = frameHeight(video, width)
+  if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
+  context.drawImage(video, 0, 0, width, height)
+  return canvas
+}
+
 async function createWorker(signal: AbortSignal, preferGPU: boolean): Promise<Runner> {
   const worker = new Worker(new URL(import.meta.env.BASE_URL + 'hand-worker.js', location.origin))
+  // WebKit can return an invalid video bitmap or ignore its resize options.
+  const webKitCanvas = /iPhone|iPad|iPod/.test(navigator.userAgent) || navigator.vendor === 'Apple Computer, Inc.'
+    ? document.createElement('canvas').getContext('2d', { alpha: false }) : null
   const stop = () => worker.terminate()
   signal.addEventListener('abort', stop, { once: true })
   let waitForPose: ((result: WorkerResult) => void) | undefined
@@ -58,11 +73,11 @@ async function createWorker(signal: AbortSignal, preferGPU: boolean): Promise<Ru
     return {
       backend: 'Worker · ' + delegate,
       async infer(video, time, width) {
-        const frame = await createImageBitmap(video, {
+        const frame = await (webKitCanvas ? createImageBitmap(drawFrame(webKitCanvas, video, width)) : createImageBitmap(video, {
           resizeWidth: width,
-          resizeHeight: Math.max(1, Math.round(width * video.videoHeight / video.videoWidth)),
+          resizeHeight: frameHeight(video, width),
           resizeQuality: 'low',
-        })
+        }))
         if (signal.aborted) { frame.close(); throw aborted() }
         return new Promise((resolve, reject) => {
           const finish = () => {
@@ -112,12 +127,7 @@ export async function createMainRunner(signal: AbortSignal, delegates: Delegate[
         backend: 'Main thread · ' + delegate,
         async infer(video, time, width) {
           const start = performance.now()
-          if (context) {
-            const height = Math.max(1, Math.round(width * video.videoHeight / video.videoWidth))
-            if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height }
-            context.drawImage(video, 0, 0, width, height)
-          }
-          const result = detector.detectForVideo(context ? canvas : video, time)
+          const result = detector.detectForVideo(context ? drawFrame(context, video, width) : video, time)
           return { pose: readPose(result, video.videoWidth / video.videoHeight), time, duration: performance.now() - start }
         },
         close() { detector.close(); canvas.width = 0; canvas.height = 0 },
